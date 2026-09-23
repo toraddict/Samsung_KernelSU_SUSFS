@@ -7,7 +7,7 @@ runs:
     - name: Locate and extract kernel version
       shell: bash
       run: |
-        REPO="WildKernels/Samsung_Kernels"
+        REPO="toraddict/Samsung_Kernels-Samsung-Galaxy-S23-SM-S916B"
 
         echo "Searching for kernel Makefile on branch $BRANCH"
 
