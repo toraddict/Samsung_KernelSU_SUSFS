@@ -50,12 +50,3 @@ runs:
         echo "KSU_GIT_TAG=$KSU_GIT_TAG" >> $GITHUB_ENV
         echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
         echo "KSU_COMMIT=$KSU_COMMIT" >> $GITHUB_ENV
-
-    - name: 'Fix KernelSU-Next'
-      if: inputs.susfs == 'true'
-      shell: bash
-      run: |
-        set -euo pipefail
-        cd "$COMMON/KernelSU-Next"
-        cp ${{ github.action_path }}/patches/static.patch ./
-        patch -p1 < static.patch
