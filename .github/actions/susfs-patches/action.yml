@@ -105,6 +105,23 @@ runs:
         echo "No patch file found, skipping"
       fi
 
+      - name: check SUSFS macros
+      shell: bash
+      run: |
+       cd "$COMMON"
+ 
+       echo "=== CHECKING SUSFS MACROS ==="
+ 
+       grep -Rns --exclude-dir=.git \
+         -E '#[[:space:]]*define[[:space:]]+SUSFS_IS_INODE_(OPEN_REDIRECT|SUS_MAP)' \
+         include fs || true
+ 
+       echo "=== CHECKING SUSFS REFERENCES ==="
+ 
+       grep -Rns --exclude-dir=.git \
+         -E 'SUSFS_IS_INODE_(OPEN_REDIRECT|SUS_MAP)' \
+         include fs || true
+
         # SUSFS's OPEN_REDIRECT code unconditionally calls VMA_PAD_START(), which
         # only exists on GKI branches that carry Google's page-size-migration
         # feature (added to each android version's kernel/common branch at a
