@@ -122,21 +122,6 @@ runs:
           sed -i '/#include <linux\/pkeys.h>/a #include <linux/page_size_compat.h>' fs/proc/task_mmu.c
           echo "Added page_size_compat.h include to fs/proc/task_mmu.c"
         fi
-
-   - name: check SUSFS inode declarations
-     shell: bash
-     run: |
-      cd "$COMMON"
-
-      echo "=== SUSFS inode definitions ==="
-      grep -Rns --exclude-dir=.git -E 'define[[:space:]]+SUSFS_IS_INODE_(OPEN_REDIRECT|SUS_MAP)' fs include/linux || true
-
-      echo "=== SUSFS inode references ==="
-      grep -Rns --exclude-dir=.git -E 'SUSFS_IS_INODE_(OPEN_REDIRECT|SUS_MAP)' fs include/linux || true
-
-      echo "=== base.c includes ==="
-      grep -n '^#include' fs/proc/base.c
-
        
    - name: add ksu-susfs to config
      shell: bash
