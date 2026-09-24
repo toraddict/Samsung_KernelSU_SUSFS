@@ -87,20 +87,22 @@ runs:
       # Apply SUSFS core patch
       patch -p1 < 50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch || true
       rm -rf 50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch
-
       echo "== [after core patch] rejects =="; find . -name '*.rej' -print
-      echo "== [after core patch] base.c susfs lines =="; grep -in "susfs" fs/proc/base.c || true
-      echo "== macro definitions =="; grep -rn "define SUSFS_IS_INODE_OPEN_REDIRECT\|define SUSFS_IS_INODE_SUS_MAP" include/linux/ || true
-      echo "== susfs4ksu commits =="; (cd "$SUSFS4KSU" && git log -3 --stat)
+      find . -name '*.rej' -exec sh -c 'echo "=== $1 ==="; cat "$1"' _ {} \;
+      echo "== [after core patch] base.c includes =="; grep -n '^#include' fs/proc/base.c | head -60
       
       shopt -s nullglob
       patches=("$KERNEL_PATCHES/samsung/$BRANCH"/*.patch)
-      
+      # base.c: include hunk was rejected on Samsung's source
+           if ! grep -q 'susfs_def.h' fs/proc/base.c; then
+             sed -i '0,/^#include "internal.h"/s//#include <linux\/susfs_def.h>\n&/' fs/proc/base.c
+             grep -q 'susfs_def.h' fs/proc/base.c || { echo "::error::failed to add susfs_def.h include to base.c"; exit 1; }
+           fi      
       if [ ${#patches[@]} -gt 0 ]; then
        echo "Patches found, applying..."
        cp "${patches[@]}" ./
  
-
+     
         for p in *.patch; do
          patch -p1 < "$p" || echo "::warning::fix patch $p had rejects"
          rm -f "$p"
@@ -109,8 +111,8 @@ runs:
       else
         echo "No patch file found, skipping"
       fi
-      echo "== [after fixes] rejects =="; find . -name '*.rej' -print
-      echo "== [after fixes] base.c susfs lines =="; grep -in "susfs" fs/proc/base.c || true
+
+
         # SUSFS's OPEN_REDIRECT code unconditionally calls VMA_PAD_START(), which
         # only exists on GKI branches that carry Google's page-size-migration
         # feature (added to each android version's kernel/common branch at a
