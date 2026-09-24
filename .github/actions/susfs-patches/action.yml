@@ -126,4 +126,5 @@ runs:
    - name: add ksu-susfs to config
      shell: bash
      run: |
+      chmod +x "$COMMON/scripts/config"
       "$COMMON/scripts/config" --file "$GKI_DEFCONFIG" --enable CONFIG_KSU_SUSFS
