@@ -95,15 +95,6 @@ runs:
        echo "Patches found, applying..."
        cp "${patches[@]}" ./
        
-       # Fix SUSFS rejects
-        for p in *.patch; do
-          patch -p1 < "$p"
-          rm -f "$p"
-        done
-        shopt -u nullglob
-      else
-        echo "No patch file found, skipping"
-      fi
 
         # SUSFS's OPEN_REDIRECT code unconditionally calls VMA_PAD_START(), which
         # only exists on GKI branches that carry Google's page-size-migration
