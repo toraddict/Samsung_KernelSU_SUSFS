@@ -33,7 +33,7 @@ runs:
      fi
      
      echo "COMMON=$COMMON" >> $GITHUB_ENV
-     
+     chmod +x "$COMMON/scripts/config"
      
   - name: set defconfig variable
     shell: bash
