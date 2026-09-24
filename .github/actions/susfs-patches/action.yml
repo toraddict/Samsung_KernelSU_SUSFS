@@ -45,6 +45,7 @@ runs:
       shell: bash
       run: |
         cd "$COMMON"
+
         cp "$SUSFS4KSU/kernel_patches/fs/"* ./fs/
         cp "$SUSFS4KSU/kernel_patches/include/linux/"* ./include/linux/
         cp "$SUSFS4KSU/kernel_patches/50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch" ./
@@ -54,9 +55,62 @@ runs:
       run: |
         cd "$COMMON"
 
+        echo "Preparing fs/open.c for SUSFS..."
         sed -i '/#ifdef CONFIG_SECURITY_DEFEX/,/^#endif/d' fs/open.c
 
-        sed -i '/copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;/,/#endif/ { /#ifdef CONFIG_KDP_NS/,/#endif/ { /#else/,/#endif/!d /#else/d /#endif/d } }' fs/namespace.c
+        echo "Preparing fs/namespace.c for SUSFS..."
+
+        python3 - <<'PY'
+        from pathlib import Path
+
+        path = Path("fs/namespace.c")
+        data = path.read_text()
+
+        start = "copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;"
+        pos = data.find(start)
+
+        if pos == -1:
+            print("copy_flags block not found, leaving fs/namespace.c unchanged")
+            raise SystemExit(0)
+
+        block_end = data.find("#endif", pos)
+
+        if block_end == -1:
+            print("No #endif found after copy_flags block, leaving fs/namespace.c unchanged")
+            raise SystemExit(0)
+
+        block_end += len("#endif")
+        block = data[pos:block_end]
+
+        if "#ifdef CONFIG_KDP_NS" not in block:
+            print("CONFIG_KDP_NS block not found, leaving fs/namespace.c unchanged")
+            raise SystemExit(0)
+
+        kdp_start = block.find("#ifdef CONFIG_KDP_NS")
+        kdp_end = block.find("#endif", kdp_start)
+
+        if kdp_end == -1:
+            print("CONFIG_KDP_NS #endif not found, leaving fs/namespace.c unchanged")
+            raise SystemExit(0)
+
+        kdp_end += len("#endif")
+        kdp_block = block[kdp_start:kdp_end]
+
+        if "#else" not in kdp_block:
+            print("CONFIG_KDP_NS #else not found, leaving block unchanged")
+            raise SystemExit(0)
+
+        else_pos = kdp_block.find("#else")
+        endif_pos = kdp_block.rfind("#endif")
+
+        replacement = kdp_block[else_pos + len("#else"):endif_pos]
+
+        new_block = block[:kdp_start] + replacement + block[kdp_end:]
+        data = data[:pos] + new_block + data[block_end:]
+
+        path.write_text(data)
+        print("fs/namespace.c prepared successfully")
+        PY
 
     - name: apply susfs patch and fix if necessary
       shell: bash
@@ -118,7 +172,7 @@ runs:
             fi
           fi
 
-          # Fix SUSFS inode helper definitions
+          # Verify SUSFS inode helper definitions
           if grep -q 'SUSFS_IS_INODE_OPEN_REDIRECT' fs/proc/base.c && ! grep -Rqs 'SUSFS_IS_INODE_OPEN_REDIRECT' include/linux fs; then
             echo "ERROR: SUSFS_IS_INODE_OPEN_REDIRECT is used but not defined"
             exit 1
