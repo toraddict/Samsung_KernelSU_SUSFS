@@ -1,102 +1,5 @@
 name: apply susfs patches
 description: apply susfs patches
-inputs:
- nomount:
-  description: 'nomount'
-  required: true
-
-runs:
-  using: composite
-  steps:
-   - name: clone susfs
-     shell: bash
-     run: |
-      SUSFS_BRANCH="gki-$ANDROID_VER-$KERNEL_VER"
-      git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
-
-      git config --global user.name "github-actions[bot]"
-      git config --global user.email "41898282+github-actions[bot]@://github.com"
-      
-      cd susfs4ksu
-      git fetch https://gitlab.com/pershoot/susfs4ksu.git gki-android14-6.1-dev
-      git log ..FETCH_HEAD --oneline -n 2 | awk '{print $1}' | tac | xargs git cherry-pick
-      
-      #cd susfs4ksu
-      #if [[ "$ANDROID_VER-$KERNEL_VER" == "android12-5.10" ]]; then
-        #COMMIT=ce2c2b2dea28c89d33f61af898cc18a93bf65ae9
-      #elif [[ "$ANDROID_VER-$KERNEL_VER" == "android13-5.15" ]]; then
-       # COMMIT=529919fbc9f8aee6ee70eb3a8890ef33af0a109c
-      #elif [[ "$ANDROID_VER-$KERNEL_VER" == "android14-6.1" ]]; then
-        #COMMIT=d1327b62e0854603cfc26e2226e0a993ec9b0656
-      #elif [[ "$ANDROID_VER-$KERNEL_VER" == "android15-6.6" ]]; then
-        #COMMIT=676d202ed2cc322a2f90bcb2b56bc4f6a864acb8
-      #fi
-      #git checkout "$COMMIT"
-
-      SUSFS4KSU="$ROOT/susfs4ksu"
-      echo "SUSFS4KSU=$SUSFS4KSU" >> $GITHUB_ENV
-      
-   - name: Apply to KSUN
-     shell: bash
-     run: |
-       #cd "$COMMON/KernelSU-Next"
-       #SUSFS_VERSION="v2.1.0"
-          
-       # Apply SUSFS to KernelSU-Next
-       #cp "$SUSFS4KSU/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch" .
-       #patch -p1 < 10_enable_susfs_for_ksu.patch || true
-       #rm -rf 10_enable_susfs_for_ksu.patch
-
-       #Fix rejects from adding susfs to KSUN
-       #cp "$KERNEL_PATCHES/next/susfs_fix_patches/$SUSFS_VERSION/"*.patch .
-       #rm -rf multi_manager.patch
-       #for p in *.patch; do
-       #    patch -p1 < "$p"
-       #    rm -f "$p"
-       #done
-       
-   - name: Copy required files
-     shell: bash
-     run: |
-      # Apply SUSFS to kernel
-      cd "$COMMON"
-      cp "$SUSFS4KSU/kernel_patches/fs/"* ./fs/
-      cp "$SUSFS4KSU/kernel_patches/include/linux/"* ./include/linux/
-      cp "$SUSFS4KSU/kernel_patches/50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch" ./          
-
-   - name: prepare namespace and open.c for susfs patch because scamsung
-     shell: bash
-     run: |
-      cd "$COMMON"
-      #Prepare open.c for susfs patching
-      sed -i '/#ifdef CONFIG_SECURITY_DEFEX/,/^#endif/d' fs/open.c
-
-      #Prepare namespace.c for susfs patching
-      sed -i '/copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;/,/#endif/ {
-        /#ifdef CONFIG_KDP_NS/,/#endif/ {
-           /#else/,/#endif/!d
-           /#else/d
-           /#endif/d
-        }
-       }' fs/namespace.c
-          
-   - name: apply susfs patch and fix if necessary
-     shell: bash
-     run: |
-      cd "$COMMON"
-      # Apply SUSFS core patch
-      patch -p1 < 50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch || true
-      rm -rf 50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch
-
-      shopt -s nullglob
-      patches=("$KERNEL_PATCHES/samsung/$BRANCH"/*.patch)
-      
-      if [ ${#patches[@]} -gt 0 ]; then
-       echo "Patches found, applying..."
-       cp "${patches[@]}" ./
-       
-name: apply susfs patches
-description: apply susfs patches
 
 inputs:
   nomount:
@@ -106,15 +9,19 @@ inputs:
 runs:
   using: composite
   steps:
-
     - name: clone susfs
       shell: bash
       run: |
         SUSFS_BRANCH="gki-$ANDROID_VER-$KERNEL_VER"
         git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
+
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@github.com"
+
         cd susfs4ksu
+        git fetch https://gitlab.com/pershoot/susfs4ksu.git gki-android14-6.1-dev
+        git log ..FETCH_HEAD --oneline -n 2 | awk '{print $1}' | tac | xargs git cherry-pick
+
         SUSFS4KSU="$ROOT/susfs4ksu"
         echo "SUSFS4KSU=$SUSFS4KSU" >> "$GITHUB_ENV"
 
@@ -126,6 +33,7 @@ runs:
         #cp "$SUSFS4KSU/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch" .
         #patch -p1 < 10_enable_susfs_for_ksu.patch || true
         #rm -rf 10_enable_susfs_for_ksu.patch
+
         #cp "$KERNEL_PATCHES/next/susfs_fix_patches/$SUSFS_VERSION/"*.patch .
         #rm -rf multi_manager.patch
         #for p in *.patch; do
@@ -145,7 +53,9 @@ runs:
       shell: bash
       run: |
         cd "$COMMON"
+
         sed -i '/#ifdef CONFIG_SECURITY_DEFEX/,/^#endif/d' fs/open.c
+
         sed -i '/copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;/,/#endif/ { /#ifdef CONFIG_KDP_NS/,/#endif/ { /#else/,/#endif/!d /#else/d /#endif/d } }' fs/namespace.c
 
     - name: apply susfs patch and fix if necessary
@@ -179,26 +89,28 @@ runs:
           # Fix SUSFS rejects
           for p in *.patch; do
             echo "Applying SUSFS/Samsung patch: $p"
+
             if ! patch -p1 < "$p"; then
               echo "ERROR: Failed to apply patch: $p"
               exit 1
             fi
+
             rm -f "$p"
           done
 
-          # Fix VMA_PAD_START compatibility
+          # Fix missing VMA_PAD_START
           if grep -q 'VMA_PAD_START(' fs/proc/task_mmu.c && ! grep -qE '#include <linux/pgsize_migration(_inline)?\.h>|define VMA_PAD_START' fs/proc/task_mmu.c; then
-            sed -i '1s/^/#ifndef VMA_PAD_START\n#define VMA_PAD_START(vma) ((vma)->vm_end)\n#endif\n/' fs/proc/task_mmu.c
-            echo "Added VMA_PAD_START fallback"
+            sed -i '1i #ifndef VMA_PAD_START\n#define VMA_PAD_START(vma) ((vma)->vm_end)\n#endif' fs/proc/task_mmu.c
+            echo "Added VMA_PAD_START fallback to fs/proc/task_mmu.c"
           fi
 
-          # Fix page_size_compat.h compatibility
+          # Fix missing page_size_compat.h
           if grep -q '__fold_filemap_fixup_entry' fs/proc/task_mmu.c && ! grep -q '#include <linux/page_size_compat.h>' fs/proc/task_mmu.c; then
             sed -i '/#include <linux\/pkeys.h>/a #include <linux/page_size_compat.h>' fs/proc/task_mmu.c
-            echo "Added page_size_compat.h"
+            echo "Added page_size_compat.h to fs/proc/task_mmu.c"
           fi
 
-          # Fix SUSFS inode helper declarations
+          # Fix missing SUSFS header in fs/proc/base.c
           if grep -q 'SUSFS_IS_INODE_OPEN_REDIRECT' fs/proc/base.c || grep -q 'SUSFS_IS_INODE_SUS_MAP' fs/proc/base.c; then
             if [ -f include/linux/susfs.h ] && ! grep -q '#include <linux/susfs.h>' fs/proc/base.c; then
               sed -i '1i #include <linux/susfs.h>' fs/proc/base.c
@@ -206,13 +118,12 @@ runs:
             fi
           fi
 
-          # Verify SUSFS_IS_INODE_OPEN_REDIRECT
+          # Fix SUSFS inode helper definitions
           if grep -q 'SUSFS_IS_INODE_OPEN_REDIRECT' fs/proc/base.c && ! grep -Rqs 'SUSFS_IS_INODE_OPEN_REDIRECT' include/linux fs; then
             echo "ERROR: SUSFS_IS_INODE_OPEN_REDIRECT is used but not defined"
             exit 1
           fi
 
-          # Verify SUSFS_IS_INODE_SUS_MAP
           if grep -q 'SUSFS_IS_INODE_SUS_MAP' fs/proc/base.c && ! grep -Rqs 'SUSFS_IS_INODE_SUS_MAP' include/linux fs; then
             echo "ERROR: SUSFS_IS_INODE_SUS_MAP is used but not defined"
             exit 1
@@ -228,26 +139,3 @@ runs:
       shell: bash
       run: |
         "$COMMON/scripts/config" --file "$GKI_DEFCONFIG" --enable CONFIG_KSU_SUSFS
-
-        # SUSFS's OPEN_REDIRECT code unconditionally calls VMA_PAD_START(), which
-        # only exists on GKI branches that carry Google's page-size-migration
-        # feature (added to each android version's kernel/common branch at a
-        # different, sometime later, os_patch_level). Older os_patch_levels in
-        # our build matrix predate it, so fall back to a no-padding definition
-        # when the real header/macro isn't present. This is version-agnostic and
-        # a no-op wherever the real header already provides it.
-        if grep -q 'VMA_PAD_START(' fs/proc/task_mmu.c && ! grep -qE '#include <linux/pgsize_migration(_inline)?\.h>|define VMA_PAD_START' fs/proc/task_mmu.c; then
-          sed -i '1a #ifndef VMA_PAD_START\n#define VMA_PAD_START(vma) ((vma)->vm_end)\n#endif' fs/proc/task_mmu.c
-          echo "Added VMA_PAD_START fallback definition to fs/proc/task_mmu.c"
-        fi
-
-        # Same story for __fold_filemap_fixup_entry(), declared in page_size_compat.h.
-        if grep -q '__fold_filemap_fixup_entry' fs/proc/task_mmu.c && ! grep -q '#include <linux/page_size_compat.h>' fs/proc/task_mmu.c; then
-          sed -i '/#include <linux\/pkeys.h>/a #include <linux/page_size_compat.h>' fs/proc/task_mmu.c
-          echo "Added page_size_compat.h include to fs/proc/task_mmu.c"
-        fi
-       
-    - name: add ksu-susfs to config
-      shell: bash
-      run: |
-       "$COMMON/scripts/config" --file "$GKI_DEFCONFIG" --enable CONFIG_KSU_SUSFS
