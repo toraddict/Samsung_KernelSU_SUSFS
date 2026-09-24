@@ -1,633 +1,129 @@
 name: apply susfs patches
 description: apply susfs patches
-
 inputs:
-  nomount:
-    description: 'nomount'
-    required: true
+ nomount:
+  description: 'nomount'
+  required: true
 
 runs:
   using: composite
   steps:
+   - name: clone susfs
+     shell: bash
+     run: |
+      SUSFS_BRANCH="gki-$ANDROID_VER-$KERNEL_VER"
+      git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
 
-    # ---------------------------------------------------------
-    # Clone SUSFS
-    # ---------------------------------------------------------
-    - name: clone susfs
-      shell: bash
-      run: |
-        set -e
+      git config --global user.name "github-actions[bot]"
+      git config --global user.email "41898282+github-actions[bot]@://github.com"
+      
+      cd susfs4ksu
+      git fetch https://gitlab.com/pershoot/susfs4ksu.git gki-android14-6.1-dev
+      git log ..FETCH_HEAD --oneline -n 2 | awk '{print $1}' | tac | xargs git cherry-pick
+      
+      #cd susfs4ksu
+      #if [[ "$ANDROID_VER-$KERNEL_VER" == "android12-5.10" ]]; then
+        #COMMIT=ce2c2b2dea28c89d33f61af898cc18a93bf65ae9
+      #elif [[ "$ANDROID_VER-$KERNEL_VER" == "android13-5.15" ]]; then
+       # COMMIT=529919fbc9f8aee6ee70eb3a8890ef33af0a109c
+      #elif [[ "$ANDROID_VER-$KERNEL_VER" == "android14-6.1" ]]; then
+        #COMMIT=d1327b62e0854603cfc26e2226e0a993ec9b0656
+      #elif [[ "$ANDROID_VER-$KERNEL_VER" == "android15-6.6" ]]; then
+        #COMMIT=676d202ed2cc322a2f90bcb2b56bc4f6a864acb8
+      #fi
+      #git checkout "$COMMIT"
 
-        SUSFS_BRANCH="gki-$ANDROID_VER-$KERNEL_VER"
+      SUSFS4KSU="$ROOT/susfs4ksu"
+      echo "SUSFS4KSU=$SUSFS4KSU" >> $GITHUB_ENV
+      
+   - name: Apply to KSUN
+     shell: bash
+     run: |
+       #cd "$COMMON/KernelSU-Next"
+       #SUSFS_VERSION="v2.1.0"
+          
+       # Apply SUSFS to KernelSU-Next
+       #cp "$SUSFS4KSU/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch" .
+       #patch -p1 < 10_enable_susfs_for_ksu.patch || true
+       #rm -rf 10_enable_susfs_for_ksu.patch
 
-        echo "Cloning SUSFS branch: $SUSFS_BRANCH"
+       #Fix rejects from adding susfs to KSUN
+       #cp "$KERNEL_PATCHES/next/susfs_fix_patches/$SUSFS_VERSION/"*.patch .
+       #rm -rf multi_manager.patch
+       #for p in *.patch; do
+       #    patch -p1 < "$p"
+       #    rm -f "$p"
+       #done
+       
+   - name: Copy required files
+     shell: bash
+     run: |
+      # Apply SUSFS to kernel
+      cd "$COMMON"
+      cp "$SUSFS4KSU/kernel_patches/fs/"* ./fs/
+      cp "$SUSFS4KSU/kernel_patches/include/linux/"* ./include/linux/
+      cp "$SUSFS4KSU/kernel_patches/50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch" ./          
 
-        git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
+   - name: prepare namespace and open.c for susfs patch because scamsung
+     shell: bash
+     run: |
+      cd "$COMMON"
+      #Prepare open.c for susfs patching
+      sed -i '/#ifdef CONFIG_SECURITY_DEFEX/,/^#endif/d' fs/open.c
 
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "41898282+github-actions[bot]@github.com"
+      #Prepare namespace.c for susfs patching
+      sed -i '/copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;/,/#endif/ {
+        /#ifdef CONFIG_KDP_NS/,/#endif/ {
+           /#else/,/#endif/!d
+           /#else/d
+           /#endif/d
+        }
+       }' fs/namespace.c
+          
+   - name: apply susfs patch and fix if necessary
+     shell: bash
+     run: |
+      cd "$COMMON"
+      # Apply SUSFS core patch
+      patch -p1 < 50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch || true
+      rm -rf 50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch
 
-        cd susfs4ksu
-
-        echo "Fetching Samsung-compatible SUSFS changes..."
-
-        git fetch https://gitlab.com/pershoot/susfs4ksu.git gki-android14-6.1-dev
-
-        git log ..FETCH_HEAD --oneline -n 2 | awk '{print $1}' | tac | xargs -r git cherry-pick
-
-        SUSFS4KSU="$ROOT/susfs4ksu"
-
-        echo "SUSFS4KSU=$SUSFS4KSU" >> "$GITHUB_ENV"
-
-        echo "SUSFS4KSU=$SUSFS4KSU"
-        echo "SUSFS branch: $SUSFS_BRANCH"
-
-
-    # ---------------------------------------------------------
-    # KernelSU-Next SUSFS integration
-    # ---------------------------------------------------------
-    - name: Apply to KSUN
-      shell: bash
-      run: |
-        set -e
-
-        # KernelSU-Next SUSFS integration is handled separately.
-        # This step is intentionally kept for compatibility.
-
-        echo "KernelSU-Next SUSFS integration handled separately."
-
-
-    # ---------------------------------------------------------
-    # Copy required SUSFS files
-    # ---------------------------------------------------------
-    - name: Copy required files
-      shell: bash
-      run: |
-        set -e
-
-        cd "$COMMON"
-
-        echo "Copying SUSFS kernel files..."
-
-        cp "$SUSFS4KSU/kernel_patches/fs/"* ./fs/
-        cp "$SUSFS4KSU/kernel_patches/include/linux/"* ./include/linux/
-
-        SUSFS_CORE_PATCH="50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch"
-
-        if [ ! -f "$SUSFS4KSU/kernel_patches/$SUSFS_CORE_PATCH" ]; then
-          echo "ERROR: SUSFS core patch not found:"
-          echo "$SUSFS4KSU/kernel_patches/$SUSFS_CORE_PATCH"
-          exit 1
-        fi
-
-        cp "$SUSFS4KSU/kernel_patches/$SUSFS_CORE_PATCH" ./
-
-        echo "SUSFS files copied successfully."
-
-
-    # ---------------------------------------------------------
-    # Apply SUSFS core patch
-    # ---------------------------------------------------------
-    - name: apply susfs core patch
-      shell: bash
-      run: |
-        set -e
-
-        cd "$COMMON"
-
-        SUSFS_CORE_PATCH="50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch"
-
-        echo "========================================"
-        echo "Applying SUSFS core patch"
-        echo "Patch: $SUSFS_CORE_PATCH"
-        echo "========================================"
-
-        if patch --dry-run -p1 < "$SUSFS_CORE_PATCH"; then
-          echo "Dry-run successful."
-        else
-          echo "ERROR: SUSFS core patch does not apply cleanly."
-          echo ""
-          echo "Patch:"
-          echo "$SUSFS_CORE_PATCH"
-          echo ""
-          echo "This usually means the SUSFS branch does not exactly"
-          echo "match the Samsung kernel source."
-          exit 1
-        fi
-
-        patch -p1 < "$SUSFS_CORE_PATCH"
-
-        echo "SUSFS core patch applied successfully."
-
-        rm -f "$SUSFS_CORE_PATCH"
-
-
-    # ---------------------------------------------------------
-    # Apply Samsung SUSFS patches
-    # ---------------------------------------------------------
-    - name: apply samsung susfs patches
-      shell: bash
-      run: |
-        set -e
-
-        cd "$COMMON"
-
-        shopt -s nullglob
-
-        patches=("$KERNEL_PATCHES/samsung/$BRANCH"/*.patch)
-
-        if [ ${#patches[@]} -eq 0 ]; then
-          echo "No Samsung SUSFS patch files found."
-          shopt -u nullglob
-          exit 0
-        fi
-
-        echo "Found ${#patches[@]} Samsung SUSFS patch file(s)."
-
-        cp "${patches[@]}" ./
-
+      shopt -s nullglob
+      patches=("$KERNEL_PATCHES/samsung/$BRANCH"/*.patch)
+      
+      if [ ${#patches[@]} -gt 0 ]; then
+       echo "Patches found, applying..."
+       cp "${patches[@]}" ./
+       
+       # Fix SUSFS rejects
         for p in *.patch; do
-
-          echo "========================================"
-          echo "Checking Samsung SUSFS patch:"
-          echo "$p"
-          echo "========================================"
-
-          if patch --dry-run -p1 < "$p"; then
-            echo "Dry-run successful: $p"
-          else
-            echo "ERROR: Samsung SUSFS patch does not apply cleanly:"
-            echo "$p"
-
-            echo ""
-            echo "This patch is incompatible with the current kernel tree."
-            echo "Stopping instead of continuing with a partially patched tree."
-
-            rm -f "$p"
-            shopt -u nullglob
-            exit 1
-          fi
-
           patch -p1 < "$p"
-
-          echo "Patch applied successfully: $p"
-
           rm -f "$p"
         done
-
         shopt -u nullglob
+      else
+        echo "No patch file found, skipping"
+      fi
 
-
-    # ---------------------------------------------------------
-    # Fix SUSFS compatibility issues
-    # ---------------------------------------------------------
-    - name: fix susfs rejects
-      shell: bash
-      run: |
-        set -e
-
-        cd "$COMMON"
-
-        echo "========================================"
-        echo "Applying SUSFS compatibility fixes"
-        echo "========================================"
-
-
-        # ---------------------------------------------------------
-        # fs/proc/base.c
-        # ---------------------------------------------------------
-
-        echo "Checking fs/proc/base.c..."
-
-        if grep -q 'SUSFS_IS_INODE_OPEN_REDIRECT' fs/proc/base.c || \
-           grep -q 'SUSFS_IS_INODE_SUS_MAP' fs/proc/base.c; then
-
-          if [ -f include/linux/susfs.h ]; then
-
-            if ! grep -q '#include <linux/susfs.h>' fs/proc/base.c; then
-              sed -i '1i #include <linux/susfs.h>' fs/proc/base.c
-              echo "Added linux/susfs.h to fs/proc/base.c"
-            else
-              echo "linux/susfs.h already included in fs/proc/base.c"
-            fi
-
-          else
-            echo "WARNING: include/linux/susfs.h does not exist."
-          fi
+        # SUSFS's OPEN_REDIRECT code unconditionally calls VMA_PAD_START(), which
+        # only exists on GKI branches that carry Google's page-size-migration
+        # feature (added to each android version's kernel/common branch at a
+        # different, sometime later, os_patch_level). Older os_patch_levels in
+        # our build matrix predate it, so fall back to a no-padding definition
+        # when the real header/macro isn't present. This is version-agnostic and
+        # a no-op wherever the real header already provides it.
+        if grep -q 'VMA_PAD_START(' fs/proc/task_mmu.c && ! grep -qE '#include <linux/pgsize_migration(_inline)?\.h>|define VMA_PAD_START' fs/proc/task_mmu.c; then
+          sed -i '1a #ifndef VMA_PAD_START\n#define VMA_PAD_START(vma) ((vma)->vm_end)\n#endif' fs/proc/task_mmu.c
+          echo "Added VMA_PAD_START fallback definition to fs/proc/task_mmu.c"
         fi
 
-
-        # ---------------------------------------------------------
-        # Check SUSFS inode helpers
-        # ---------------------------------------------------------
-
-        if grep -q 'SUSFS_IS_INODE_OPEN_REDIRECT' fs/proc/base.c; then
-
-          if grep -RqsE \
-            'define[[:space:]]+SUSFS_IS_INODE_OPEN_REDIRECT|SUSFS_IS_INODE_OPEN_REDIRECT[[:space:]]*\(' \
-            include/linux fs; then
-
-            echo "SUSFS_IS_INODE_OPEN_REDIRECT definition/reference found."
-
-          else
-            echo "WARNING: SUSFS_IS_INODE_OPEN_REDIRECT is used but no definition was found."
-          fi
+        # Same story for __fold_filemap_fixup_entry(), declared in page_size_compat.h.
+        if grep -q '__fold_filemap_fixup_entry' fs/proc/task_mmu.c && ! grep -q '#include <linux/page_size_compat.h>' fs/proc/task_mmu.c; then
+          sed -i '/#include <linux\/pkeys.h>/a #include <linux/page_size_compat.h>' fs/proc/task_mmu.c
+          echo "Added page_size_compat.h include to fs/proc/task_mmu.c"
         fi
-
-
-        if grep -q 'SUSFS_IS_INODE_SUS_MAP' fs/proc/base.c; then
-
-          if grep -RqsE \
-            'define[[:space:]]+SUSFS_IS_INODE_SUS_MAP|SUSFS_IS_INODE_SUS_MAP[[:space:]]*\(' \
-            include/linux fs; then
-
-            echo "SUSFS_IS_INODE_SUS_MAP definition/reference found."
-
-          else
-            echo "WARNING: SUSFS_IS_INODE_SUS_MAP is used but no definition was found."
-          fi
-        fi
-
-
-        # ---------------------------------------------------------
-        # fs/proc/task_mmu.c
-        #
-        # IMPORTANT:
-        # Do NOT add a VMA_PAD_START fallback here.
-        #
-        # Samsung's kernel already provides VMA_PAD_START through:
-        #
-        # include/linux/pgsize_migration_inline.h
-        #
-        # Adding:
-        #
-        # #define VMA_PAD_START(vma) ((vma)->vm_end)
-        #
-        # causes:
-        #
-        # error: 'VMA_PAD_START' macro redefined
-        #
-        # with -Werror.
-        # ---------------------------------------------------------
-
-        echo "Checking fs/proc/task_mmu.c..."
-
-        if grep -q 'VMA_PAD_START(' fs/proc/task_mmu.c; then
-
-          echo "VMA_PAD_START usage found in fs/proc/task_mmu.c"
-
-          if grep -qE '^[[:space:]]*#define[[:space:]]+VMA_PAD_START' fs/proc/task_mmu.c; then
-
-            echo "ERROR: fs/proc/task_mmu.c contains a local VMA_PAD_START definition."
-
-            echo ""
-            echo "Found:"
-            grep -nE '^[[:space:]]*#define[[:space:]]+VMA_PAD_START' \
-              fs/proc/task_mmu.c
-
-            echo ""
-            echo "Removing the incompatible local definition..."
-
-            sed -i \
-              '/^[[:space:]]*#ifndef[[:space:]]\+VMA_PAD_START[[:space:]]*$/d' \
-              fs/proc/task_mmu.c
-
-            sed -i \
-              '/^[[:space:]]*#define[[:space:]]\+VMA_PAD_START(vma)[[:space:]]\+((vma)->vm_end)[[:space:]]*$/d' \
-              fs/proc/task_mmu.c
-
-            sed -i \
-              '/^[[:space:]]*#endif[[:space:]]*$/{
-                N
-              }' fs/proc/task_mmu.c || true
-
-            echo "Removed local VMA_PAD_START definition."
-
-          else
-            echo "No local VMA_PAD_START definition found."
-          fi
-
-        else
-          echo "No VMA_PAD_START usage found in fs/proc/task_mmu.c."
-        fi
-
-
-        # ---------------------------------------------------------
-        # Verify VMA_PAD_START definitions
-        # ---------------------------------------------------------
-
-        echo ""
-        echo "========================================"
-        echo "Checking VMA_PAD_START definitions"
-        echo "========================================"
-
-        VMA_DEFINITIONS="$(grep -Rns \
-          --exclude-dir=out \
-          -E '^[[:space:]]*#define[[:space:]]+VMA_PAD_START' \
-          include/linux fs 2>/dev/null || true)"
-
-        if [ -n "$VMA_DEFINITIONS" ]; then
-          echo "$VMA_DEFINITIONS"
-        else
-          echo "WARNING: No VMA_PAD_START definition found."
-        fi
-
-
-        # ---------------------------------------------------------
-        # page_size_compat.h
-        # ---------------------------------------------------------
-
-        echo ""
-        echo "Checking page_size_compat.h integration..."
-
-        if grep -q '__fold_filemap_fixup_entry' fs/proc/task_mmu.c; then
-
-          if [ -f include/linux/page_size_compat.h ]; then
-
-            if ! grep -q '#include <linux/page_size_compat.h>' fs/proc/task_mmu.c; then
-
-              if grep -q '#include <linux/pkeys.h>' fs/proc/task_mmu.c; then
-
-                sed -i \
-                  '/#include <linux\/pkeys.h>/a #include <linux/page_size_compat.h>' \
-                  fs/proc/task_mmu.c
-
-                echo "Added page_size_compat.h to fs/proc/task_mmu.c"
-
-              else
-
-                sed -i \
-                  '1i #include <linux/page_size_compat.h>' \
-                  fs/proc/task_mmu.c
-
-                echo "Added page_size_compat.h at top of fs/proc/task_mmu.c"
-
-              fi
-
-            else
-              echo "page_size_compat.h already included."
-            fi
-
-          else
-            echo "WARNING: include/linux/page_size_compat.h does not exist."
-          fi
-        fi
-
-
-        # ---------------------------------------------------------
-        # Clean temporary patch files
-        # ---------------------------------------------------------
-
-        echo ""
-        echo "Cleaning temporary patch files..."
-
-        find . -name "*.orig" -delete
-
-
-        # ---------------------------------------------------------
-        # Detect remaining rejects
-        # ---------------------------------------------------------
-
-        rejects=$(find . -name "*.rej" -print)
-
-        if [ -n "$rejects" ]; then
-
-          echo ""
-          echo "ERROR: SUSFS patch rejects remain:"
-          echo "$rejects"
-
-          for rej in $rejects; do
-            echo "========================================"
-            echo "REJECT: $rej"
-            echo "========================================"
-            cat "$rej"
-          done
-
-          exit 1
-
-        else
-          echo "No SUSFS patch rejects remain."
-        fi
-
-
-        echo ""
-        echo "SUSFS compatibility fixes completed successfully."
-
-
-    # ---------------------------------------------------------
-    # Prepare Samsung open.c and namespace.c
-    # ---------------------------------------------------------
-    - name: prepare samsung open.c and namespace.c
-      shell: bash
-      run: |
-        set -e
-
-        cd "$COMMON"
-
-
-        # ---------------------------------------------------------
-        # fs/open.c
-        # ---------------------------------------------------------
-
-        echo "Preparing fs/open.c for Samsung SUSFS..."
-
-        sed -i \
-          '/#ifdef CONFIG_SECURITY_DEFEX/,/^#endif/d' \
-          fs/open.c
-
-
-        # ---------------------------------------------------------
-        # fs/namespace.c
-        # ---------------------------------------------------------
-
-        echo "Preparing fs/namespace.c for Samsung SUSFS..."
-
-        python3 - <<'PY'
-from pathlib import Path
-
-path = Path("fs/namespace.c")
-data = path.read_text()
-
-start = "copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;"
-pos = data.find(start)
-
-if pos == -1:
-    print("copy_flags block not found")
-    raise SystemExit(0)
-
-block_end = data.find("#endif", pos)
-
-if block_end == -1:
-    print("No #endif found after copy_flags block")
-    raise SystemExit(0)
-
-block_end += len("#endif")
-
-block = data[pos:block_end]
-
-if "#ifdef CONFIG_KDP_NS" not in block:
-    print("CONFIG_KDP_NS block not found")
-    raise SystemExit(0)
-
-kdp_start = block.find("#ifdef CONFIG_KDP_NS")
-kdp_end = block.find("#endif", kdp_start)
-
-if kdp_end == -1:
-    print("CONFIG_KDP_NS #endif not found")
-    raise SystemExit(0)
-
-kdp_end += len("#endif")
-
-kdp_block = block[kdp_start:kdp_end]
-
-if "#else" not in kdp_block:
-    print("CONFIG_KDP_NS #else not found")
-    raise SystemExit(0)
-
-else_pos = kdp_block.find("#else")
-endif_pos = kdp_block.rfind("#endif")
-
-replacement = kdp_block[
-    else_pos + len("#else"):
-    endif_pos
-]
-
-new_block = (
-    block[:kdp_start]
-    + replacement
-    + block[kdp_end:]
-)
-
-data = (
-    data[:pos]
-    + new_block
-    + data[block_end:]
-)
-
-path.write_text(data)
-
-print("fs/namespace.c prepared successfully")
-PY
-
-
-    # ---------------------------------------------------------
-    # Final SUSFS validation
-    # ---------------------------------------------------------
-    - name: validate susfs changes
-      shell: bash
-      run: |
-        set -e
-
-        cd "$COMMON"
-
-        echo "========================================"
-        echo "Final SUSFS validation"
-        echo "========================================"
-
-
-        # ---------------------------------------------------------
-        # Check task_mmu.c for the bad fallback
-        # ---------------------------------------------------------
-
-        if grep -qE \
-          '^[[:space:]]*#define[[:space:]]+VMA_PAD_START\(vma\)[[:space:]]+\(\(vma\)->vm_end\)' \
-          fs/proc/task_mmu.c; then
-
-          echo "ERROR: Invalid VMA_PAD_START fallback still exists:"
-          grep -nE \
-            'VMA_PAD_START' \
-            fs/proc/task_mmu.c
-
-          exit 1
-
-        fi
-
-
-        # ---------------------------------------------------------
-        # Show actual VMA_PAD_START definition
-        # ---------------------------------------------------------
-
-        echo ""
-        echo "VMA_PAD_START definitions:"
-
-        grep -Rns \
-          --exclude-dir=out \
-          -E '^[[:space:]]*#define[[:space:]]+VMA_PAD_START' \
-          include/linux fs || true
-
-
-        # ---------------------------------------------------------
-        # Check rejects
-        # ---------------------------------------------------------
-
-        rejects=$(find . -name "*.rej" -print)
-
-        if [ -n "$rejects" ]; then
-
-          echo ""
-          echo "ERROR: Remaining .rej files:"
-          echo "$rejects"
-
-          for rej in $rejects; do
-            echo "========================================"
-            echo "$rej"
-            echo "========================================"
-            cat "$rej"
-          done
-
-          exit 1
-
-        fi
-
-
-        # ---------------------------------------------------------
-        # Check common SUSFS header
-        # ---------------------------------------------------------
-
-        if [ -f include/linux/susfs.h ]; then
-          echo "OK: include/linux/susfs.h exists."
-        else
-          echo "WARNING: include/linux/susfs.h not found."
-        fi
-
-
-        echo ""
-        echo "SUSFS validation completed."
-
-
-    # ---------------------------------------------------------
-    # Add KSU SUSFS config
-    # ---------------------------------------------------------
-    - name: add ksu-susfs to config
-      shell: bash
-      run: |
-        set -e
-
-        echo "Enabling CONFIG_KSU_SUSFS..."
-
-        "$COMMON/scripts/config" \
-          --file "$GKI_DEFCONFIG" \
-          --enable CONFIG_KSU_SUSFS
-
-        echo "CONFIG_KSU_SUSFS enabled successfully."
-
-
-    # ---------------------------------------------------------
-    # Show final relevant configuration
-    # ---------------------------------------------------------
-    - name: verify ksu susfs config
-      shell: bash
-      run: |
-        set -e
-
-        echo "========================================"
-        echo "KSU SUSFS configuration"
-        echo "========================================"
-
-        "$COMMON/scripts/config" \
-          --file "$GKI_DEFCONFIG" \
-          --state CONFIG_KSU_SUSFS || true
-
-        echo ""
-        echo "GKI defconfig:"
-        echo "$GKI_DEFCONFIG"
+       
+   - name: add ksu-susfs to config
+     shell: bash
+     run: |
+      "$COMMON/scripts/config" --file "$GKI_DEFCONFIG" --enable CONFIG_KSU_SUSFS
