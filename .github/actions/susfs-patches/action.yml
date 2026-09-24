@@ -129,14 +129,10 @@ runs:
       cd "$COMMON"
 
       echo "=== SUSFS inode definitions ==="
-      grep -Rns --exclude-dir=.git \
-        -E 'define[[:space:]]+SUSFS_IS_INODE_(OPEN_REDIRECT|SUS_MAP)' \
-        fs include/linux || true
+      grep -Rns --exclude-dir=.git -E 'define[[:space:]]+SUSFS_IS_INODE_(OPEN_REDIRECT|SUS_MAP)' fs include/linux || true
 
       echo "=== SUSFS inode references ==="
-      grep -Rns --exclude-dir=.git \
-        -E 'SUSFS_IS_INODE_(OPEN_REDIRECT|SUS_MAP)' \
-        fs include/linux || true
+      grep -Rns --exclude-dir=.git -E 'SUSFS_IS_INODE_(OPEN_REDIRECT|SUS_MAP)' fs include/linux || true
 
       echo "=== base.c includes ==="
       grep -n '^#include' fs/proc/base.c
