@@ -49,15 +49,23 @@ runs:
      elif [[ -d kernel_platform ]]; then
       cd kernel_platform
       
-     find build/kernel/build-tools/path/linux-x86 -type f -exec chmod 755 {} +
-     find prebuilts/bazel/linux-x86_64 -type f -exec chmod 755 {} +
-     find prebuilts/jdk/jdk11/linux-x86/bin -type f -exec chmod 755 {} +
-     
-     chmod 755 prebuilts/bazel/linux-x86_64/bazel
-     chmod 755 tools/bazel
-     chmod 755 prebuilts/jdk/jdk11/linux-x86/bin/*
-     chmod 755 build/kernel/build-tools/path/linux-x86/python3
+      
 
+       
+       find build/kernel/build-tools/path/linux-x86 -type f -exec chmod 755 {} +
+       find prebuilts/jdk/jdk11/linux-x86/bin -type f -exec chmod 755 {} +
+   
+       
+       for tool in avbtool dd env; do
+           if [[ -e "build/kernel/build-tools/path/linux-x86/$tool" ]]; then
+               chmod 755 "build/kernel/build-tools/path/linux-x86/$tool"
+           fi
+       done
+   
+       
+       chmod 755 prebuilts/bazel/linux-x86_64/bazel
+       chmod 755 tools/bazel
+       chmod 755 prebuilts/jdk/jdk11/linux-x86/bin/*
       
      
      tools/bazel build $BAZEL_LTO //common:kernel_aarch64
