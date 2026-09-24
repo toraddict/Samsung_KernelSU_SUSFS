@@ -88,23 +88,29 @@ runs:
       patch -p1 < 50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch || true
       rm -rf 50_add_susfs_in_gki-$ANDROID_VER-$KERNEL_VER.patch
 
+      echo "== [after core patch] rejects =="; find . -name '*.rej' -print
+      echo "== [after core patch] base.c susfs lines =="; grep -in "susfs" fs/proc/base.c || true
+      echo "== macro definitions =="; grep -rn "define SUSFS_IS_INODE_OPEN_REDIRECT\|define SUSFS_IS_INODE_SUS_MAP" include/linux/ || true
+      echo "== susfs4ksu commits =="; (cd "$SUSFS4KSU" && git log -3 --stat)
+      
       shopt -s nullglob
       patches=("$KERNEL_PATCHES/samsung/$BRANCH"/*.patch)
       
       if [ ${#patches[@]} -gt 0 ]; then
        echo "Patches found, applying..."
        cp "${patches[@]}" ./
-       
-       # Fix SUSFS rejects
+ 
+
         for p in *.patch; do
-          patch -p1 < "$p"
-          rm -f "$p"
-        done
+         patch -p1 < "$p" || echo "::warning::fix patch $p had rejects"
+         rm -f "$p"
+       done
         shopt -u nullglob
       else
         echo "No patch file found, skipping"
       fi
-
+      echo "== [after fixes] rejects =="; find . -name '*.rej' -print
+      echo "== [after fixes] base.c susfs lines =="; grep -in "susfs" fs/proc/base.c || true
         # SUSFS's OPEN_REDIRECT code unconditionally calls VMA_PAD_START(), which
         # only exists on GKI branches that carry Google's page-size-migration
         # feature (added to each android version's kernel/common branch at a
