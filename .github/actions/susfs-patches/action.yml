@@ -123,8 +123,23 @@ runs:
           echo "Added page_size_compat.h include to fs/proc/task_mmu.c"
         fi
        
+   - name: Fix executable permissions
+     shell: bash
+     run: |
+      set -e
+
+      chmod +x "$COMMON/scripts/config"
+
+      [ ! -f "$ROOT/kernel_platform/tools/bazel" ] || \
+        chmod +x "$ROOT/kernel_platform/tools/bazel"
+
+      [ ! -f "$ROOT/kernel_platform/build/kernel/build-tools/path/linux-x86/python3" ] || \
+        chmod +x "$ROOT/kernel_platform/build/kernel/build-tools/path/linux-x86/python3"
+
    - name: add ksu-susfs to config
      shell: bash
      run: |
-      chmod +x "$COMMON/scripts/config"
-      "$COMMON/scripts/config" --file "$GKI_DEFCONFIG" --enable CONFIG_KSU_SUSFS
+      set -e
+      "$COMMON/scripts/config" \
+        --file "$GKI_DEFCONFIG" \
+        --enable CONFIG_KSU_SUSFS
