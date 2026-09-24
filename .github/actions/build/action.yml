@@ -57,6 +57,7 @@ runs:
      chmod 755 build/kernel/build-tools/path/linux-x86/avbtool
      chmod 755 build/kernel/build-tools/path/linux-x86/dd
      chmod 755 build/kernel/build-tools/path/linux-x86/env
+     chmod 755 build/kernel/build-tools/path/linux-x86/certify_bootimg
 
      
      tools/bazel build $BAZEL_LTO //common:kernel_aarch64
