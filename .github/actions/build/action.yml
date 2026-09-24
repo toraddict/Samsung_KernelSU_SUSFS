@@ -61,7 +61,7 @@ runs:
       chmod 755 prebuilts/bazel/linux-x86_64/bazel
       chmod 755 tools/bazel
       chmod 755 prebuilts/jdk/jdk11/linux-x86/bin/java
-
+      chmod 755 build/kernel/build-tools/path/linux-x86/mkdtimg
      
      tools/bazel build $BAZEL_LTO //common:kernel_aarch64
      fi
