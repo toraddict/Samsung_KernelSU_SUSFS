@@ -48,6 +48,7 @@ runs:
       env $SCRIPT_LTO ./build_kernel_GKI.sh || true
      elif [[ -d kernel_platform ]]; then
       cd kernel_platform
+      chmod +x build/kernel/build-tools/path/linux-x86/python3
       tools/bazel build $BAZEL_LTO //common:kernel_aarch64
      fi
       
