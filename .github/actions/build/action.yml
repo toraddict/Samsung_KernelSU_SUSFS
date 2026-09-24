@@ -48,16 +48,19 @@ runs:
       env $SCRIPT_LTO ./build_kernel_GKI.sh || true
      elif [[ -d kernel_platform ]]; then
       cd kernel_platform
-      
-     chmod 755 prebuilts/bazel/linux-x86_64/bazel
-     chmod 755 tools/bazel
-     chmod 755 prebuilts/jdk/jdk11/linux-x86/bin/java
-     chmod 755 prebuilts/jdk/jdk11/linux-x86/bin/javac
-     chmod 755 build/kernel/build-tools/path/linux-x86/python3
-     chmod 755 build/kernel/build-tools/path/linux-x86/avbtool
-     chmod 755 build/kernel/build-tools/path/linux-x86/dd
-     chmod 755 build/kernel/build-tools/path/linux-x86/env
-     chmod 755 build/kernel/build-tools/path/linux-x86/certify_bootimg
+
+      find build/kernel/build-tools/path/linux-x86 -type f -exec chmod 755 {} +
+      find prebuilts/jdk/jdk11/linux-x86/bin -type f -exec chmod 755 {} +
+  
+      chmod 755 build/kernel/build-tools/path/linux-x86/python3
+      chmod 755 build/kernel/build-tools/path/linux-x86/certify_bootimg
+      chmod 755 build/kernel/build-tools/path/linux-x86/build_image
+      chmod 755 build/kernel/build-tools/path/linux-x86/avbtool
+      chmod 755 build/kernel/build-tools/path/linux-x86/dd
+      chmod 755 build/kernel/build-tools/path/linux-x86/env
+      chmod 755 prebuilts/bazel/linux-x86_64/bazel
+      chmod 755 tools/bazel
+      chmod 755 prebuilts/jdk/jdk11/linux-x86/bin/java
 
      
      tools/bazel build $BAZEL_LTO //common:kernel_aarch64
