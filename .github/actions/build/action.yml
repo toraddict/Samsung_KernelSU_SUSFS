@@ -49,6 +49,7 @@ runs:
      elif [[ -d kernel_platform ]]; then
       cd kernel_platform
       chmod +x build/kernel/build-tools/path/linux-x86/python3
+      chmod +x /kernel_platform/common/scripts/config
       tools/bazel build $BAZEL_LTO //common:kernel_aarch64
      fi
       
