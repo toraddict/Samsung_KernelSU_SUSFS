@@ -91,10 +91,6 @@ runs:
       shopt -s nullglob
       patches=("$KERNEL_PATCHES/samsung/$BRANCH"/*.patch)
       
-      if [ ${#patches[@]} -gt 0 ]; then
-       echo "Patches found, applying..."
-       cp "${patches[@]}" ./
-       
 
         # SUSFS's OPEN_REDIRECT code unconditionally calls VMA_PAD_START(), which
         # only exists on GKI branches that carry Google's page-size-migration
