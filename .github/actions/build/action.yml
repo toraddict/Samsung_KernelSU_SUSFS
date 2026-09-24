@@ -50,10 +50,9 @@ runs:
       cd kernel_platform
       
     
-     chmod 755 kernel_platform/prebuilts/bazel/linux-x86_64/bazel
-     chmod 755 kernel_platform/build/kernel/build-tools/path/linux-x86/python3
-     chmod 755 kernel_platform/common/scripts/config
-     chmod 755 kernel_platform/tools/bazel
+      chmod 755 build/kernel/build-tools/path/linux-x86/python3
+      chmod 755 prebuilts/bazel/linux-x86_64/bazel
+      chmod 755 tools/bazel
      
      tools/bazel build $BAZEL_LTO //common:kernel_aarch64
      fi
