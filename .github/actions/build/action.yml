@@ -53,7 +53,9 @@ runs:
       find build/kernel/build-tools/path/linux-x86 -type l -exec test -e {} \; -exec chmod 755 {} +
       find prebuilts/jdk/jdk11/linux-x86/bin -type f -exec chmod 755 {} +
       find prebuilts/jdk/jdk11/linux-x86/bin -type l -exec test -e {} \; -exec chmod 755 {} +
-      
+      find common/scripts -type f -exec chmod 755 {} +
+      find common/scripts -type l -exec test -e {} \; -exec chmod 755 {} +
+
       chmod 755 tools/bazel
       chmod 755 prebuilts/bazel/linux-x86_64/bazel
       
