@@ -79,7 +79,18 @@ runs:
            /#endif/d
         }
        }' fs/namespace.c
-          
+
+
+   - name: diagnose susfs_is_current_proc_no_su
+     shell: bash
+     run: |
+      cd "$COMMON"
+      echo "=== searching for declaration ==="
+      grep -rn 'susfs_is_current_proc_no_su' include/linux/ || echo "not found in include/linux"
+      echo "=== context around any match, with guards ==="
+      grep -rn -B5 'susfs_is_current_proc_no_su' include/linux/*.h 2>/dev/null
+
+      
    - name: apply susfs patch and fix if necessary
      shell: bash
      run: |
