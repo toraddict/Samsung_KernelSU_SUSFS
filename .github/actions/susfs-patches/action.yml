@@ -104,7 +104,39 @@ runs:
       else
         echo "No patch file found, skipping"
       fi
+      
+      for f in fs/proc/base.c fs/exec.c fs/namespace.c; do
+        if [ -f "${f}.rej" ]; then
+          echo "--- reject for $f ---"
+          cat "${f}.rej"
 
+          # Auto-apply only the #include lines the failed hunk wanted to add;
+          # anything else in the reject is left alone and flagged, since
+          # blindly replaying arbitrary hunk content is unsafe.
+          mapfile -t new_includes < <(grep '^+#include' "${f}.rej" | sed 's/^+//')
+          non_include_adds=$(grep '^+' "${f}.rej" | grep -v '^+++' | grep -v '^+#include')
+
+          if [ -n "$non_include_adds" ]; then
+            echo "WARNING: ${f}.rej has non-#include additions; review manually:" >&2
+            echo "$non_include_adds" >&2
+          fi
+
+          for inc in "${new_includes[@]}"; do
+            if ! grep -qF "$inc" "$f"; then
+              last_include_line=$(grep -n '^#include' "$f" | tail -1 | cut -d: -f1)
+              if [ -n "$last_include_line" ]; then
+                sed -i "${last_include_line}a ${inc}" "$f"
+                echo "Added '$inc' to $f"
+              else
+                echo "WARNING: no #include lines found in $f, could not auto-fix" >&2
+              fi
+            fi
+          done
+
+          rm -f "${f}.rej"
+        fi
+      done
+      
         # SUSFS's OPEN_REDIRECT code unconditionally calls VMA_PAD_START(), which
         # only exists on GKI branches that carry Google's page-size-migration
         # feature (added to each android version's kernel/common branch at a
