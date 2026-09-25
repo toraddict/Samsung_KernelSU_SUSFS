@@ -106,36 +106,46 @@ runs:
       fi
       
       for f in fs/proc/base.c fs/exec.c fs/namespace.c; do
-        if [ -f "${f}.rej" ]; then
-          echo "--- reject for $f ---"
-          cat "${f}.rej"
+           if [ -f "${f}.rej" ]; then
+             echo "--- reject for $f ---"
+             cat "${f}.rej"
+   
+             mapfile -t new_includes < <(grep '^+#include' "${f}.rej" | sed 's/^+//')
+             non_include_adds=$(grep '^+' "${f}.rej" | grep -v '^+++' | grep -v '^+#include')
+   
+             if [ -n "$non_include_adds" ]; then
+               echo "WARNING: ${f}.rej has non-#include additions; review manually:" >&2
+               echo "$non_include_adds" >&2
+             fi
+   
+             for inc in "${new_includes[@]}"; do
+               if ! grep -qF "$inc" "$f"; then
+                 last_include_line=$(grep -n '^#include' "$f" | tail -1 | cut -d: -f1)
+                 if [ -n "$last_include_line" ]; then
+                   sed -i "${last_include_line}a ${inc}" "$f"
+                   echo "Added '$inc' to $f"
+                 else
+                   echo "WARNING: no #include lines found in $f, could not auto-fix" >&2
+                 fi
+               fi
+             done
+   
+             rm -f "${f}.rej"
+           fi
+         done
 
-          # Auto-apply only the #include lines the failed hunk wanted to add;
-          # anything else in the reject is left alone and flagged, since
-          # blindly replaying arbitrary hunk content is unsafe.
-          mapfile -t new_includes < <(grep '^+#include' "${f}.rej" | sed 's/^+//')
-          non_include_adds=$(grep '^+' "${f}.rej" | grep -v '^+++' | grep -v '^+#include')
-
-          if [ -n "$non_include_adds" ]; then
-            echo "WARNING: ${f}.rej has non-#include additions; review manually:" >&2
-            echo "$non_include_adds" >&2
-          fi
-
-          for inc in "${new_includes[@]}"; do
-            if ! grep -qF "$inc" "$f"; then
-              last_include_line=$(grep -n '^#include' "$f" | tail -1 | cut -d: -f1)
-              if [ -n "$last_include_line" ]; then
-                sed -i "${last_include_line}a ${inc}" "$f"
-                echo "Added '$inc' to $f"
-              else
-                echo "WARNING: no #include lines found in $f, could not auto-fix" >&2
-              fi
-            fi
-          done
-
-          rm -f "${f}.rej"
+      # exec.c calls susfs_is_current_proc_no_su(), declared in
+      # linux/susfs.h (not susfs_def.h). Runs once, after the loop above.
+      if grep -q 'susfs_is_current_proc_no_su' fs/exec.c && \
+         ! grep -q '#include <linux/susfs.h>' fs/exec.c; then
+        def_include_line=$(grep -n '#include <linux/susfs_def.h>' fs/exec.c | tail -1 | cut -d: -f1)
+        if [ -n "$def_include_line" ]; then
+          sed -i "${def_include_line}a #include <linux/susfs.h>" fs/exec.c
+          echo "Added susfs.h include to fs/exec.c"
+        else
+          echo "WARNING: could not find susfs_def.h include in fs/exec.c to anchor susfs.h" >&2
         fi
-      done
+      fi
       
         # SUSFS's OPEN_REDIRECT code unconditionally calls VMA_PAD_START(), which
         # only exists on GKI branches that carry Google's page-size-migration
